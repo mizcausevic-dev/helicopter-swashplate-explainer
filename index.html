@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helicopter Swashplate · schematic explainer</title>
+<meta name="description" content="34-second frame-locked schematic of Helicopter Swashplate. Explanatory only, not a certified reference.">
+<link rel="canonical" href="https://mizcausevic-dev.github.io/helicopter-swashplate-explainer/">
+<style>
+:root { color-scheme: dark; --bg:#0B1019; --panel:#141c27; --line:#2c3c50; --bone:#e6edf5; --dim:#93a3b5; --path:#00E5FF; --energy:#FFD166; --sense:#9D4EDD; }
+* { box-sizing: border-box; }
+html, body { margin:0; background:var(--bg); color:var(--bone); font-family: ui-sans-serif, "Segoe UI", sans-serif; }
+body { min-height:100vh; }
+.wrap { max-width:1180px; margin:0 auto; padding:20px 18px 32px; }
+header h1 { font-size:clamp(1.5rem, 2vw, 2rem); line-height:1.15; margin:6px 0 4px; letter-spacing:-.02em; }
+.kicker, .cat { color:var(--dim); margin:0; font-size:.92rem; }
+.kicker { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing:.04em; text-transform:uppercase; font-size:.74rem; }
+.layout { display:grid; grid-template-columns: minmax(0, 1.7fr) minmax(260px, .8fr); gap:16px; margin-top:16px; }
+.plate-frame { position:relative; background:#070b12; border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+.plate-frame:before, .plate-frame:after { content:""; position:absolute; width:14px; height:14px; border:1px solid rgba(0,229,255,.55); z-index:2; pointer-events:none; }
+.plate-frame:before { top:8px; left:8px; border-right:0; border-bottom:0; }
+.plate-frame:after { right:8px; bottom:8px; border-left:0; border-top:0; }
+canvas { display:block; width:100%; height:min(68vh, 640px); background:#0B1019; }
+.legend { display:flex; flex-wrap:wrap; gap:8px; padding:8px 10px 10px; }
+.legend span { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.72rem; letter-spacing:.04em; border:1px solid var(--line); border-radius:999px; padding:4px 8px; color:var(--dim); }
+.legend .path { color:var(--path); } .legend .energy { color:var(--energy); } .legend .sense { color:var(--sense); }
+aside { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 14px 16px; }
+aside h2 { font-size:1.02rem; margin:0 0 8px; }
+aside p { color:var(--dim); line-height:1.45; }
+ol, ul { margin:8px 0 0; padding-left:18px; }
+li { margin:6px 0; line-height:1.4; }
+.stages { list-style:none; padding:0; margin:12px 0 0; }
+.stages button { width:100%; text-align:left; background:#101820; color:var(--bone); border:1px solid var(--line); border-radius:8px; padding:8px 10px; cursor:pointer; font:inherit; }
+.stages button[aria-current="step"] { border-color:var(--path); color:var(--path); }
+.stages span { display:block; color:var(--dim); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.72rem; }
+button:focus-visible, input:focus-visible { outline:2px solid var(--path); outline-offset:2px; }
+.transport { display:flex; gap:10px; align-items:center; margin-top:12px; }
+#play { background:var(--path); color:#062026; border:0; border-radius:999px; padding:10px 16px; font-weight:700; cursor:pointer; min-height:44px; }
+#scrub { flex:1; accent-color: var(--path); min-height:44px; }
+#readout { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--dim); font-size:.78rem; }
+.ref a { color:var(--path); }
+footer { margin-top:18px; color:var(--dim); font-size:.85rem; }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; } canvas { height:70vw; min-height:280px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior:auto; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<p class="kicker">Frame-locked schematic · 1,020 frames · 30 fps · not a certified reference</p>
+<h1>Helicopter Swashplate</h1>
+<p class="cat">Aerospace Engineering · prompt p20</p>
+</header>
+<div class="layout">
+<div>
+<div class="plate-frame">
+<canvas id="plate" aria-label="Schematic of Helicopter Swashplate. The text beside the figure states each stage and the limits."></canvas>
+</div>
+<div class="legend" aria-hidden="true">
+<span class="path">Cyan pathway</span>
+<span class="energy">Gold energy</span>
+<span class="sense">Violet sensing</span>
+<span>Schematic scale</span>
+</div>
+<div class="transport">
+<button id="play" type="button" aria-pressed="false">Play</button>
+<input id="scrub" type="range" min="0" max="1019" value="0" aria-label="Frame">
+<span id="readout">00:00.00 frame 0</span>
+</div>
+<p class="cat">Space plays or pauses. Arrow keys step frames. Keys 1 through 5 jump stages. Shift plus an arrow jumps 15 frames.</p>
+</div>
+<aside>
+<h2 id="stage-title">Stage 1 of 5</h2>
+<p id="stage-detail"></p>
+<h3>Limits from the brief</h3>
+<ul><li>Linkage direction and phase depend on design. No universal tilt angle or same-azimuth aerodynamic response.</li></ul>
+<h3>Stages</h3>
+<ol class="stages"><li><button type="button" data-stage="0">1. Reveal rings and links <span>0-149</span></button></li><li><button type="button" data-stage="1">2. Translate collective <span>150-299</span></button></li><li><button type="button" data-stage="2">3. Tilt cyclic while rotating ring turns <span>300-509</span></button></li><li><button type="button" data-stage="3">4. Trace pitch-link and blade feathering <span>510-749</span></button></li><li><button type="button" data-stage="4">5. Pull back to rotor response <span>750-1019</span></button></li></ol>
+<h3>Safeguards</h3>
+<ul><li>Explanatory schematic, not a certified engineering, medical, or product reference.</li><li>Cyan marks the primary pathway, gold marks energy or actuation, and violet marks sensing or state. These colors are overlays, not literal emission.</li><li>Scale changes, slow motion, and time compression are labeled on the figure.</li><li>This page does not add dimensions, efficiencies, certifications, vendor internals, or performance claims.</li><li>Verify the subject before any publication, purchase, safety, or clinical use.</li></ul>
+
+</aside>
+</div>
+<footer>
+<p>Static plate. No account, no form, no third-party script, no analytics. Built as an illustrative cutaway from a working brief.</p>
+</footer>
+</div>
+<script id="scene-data" type="application/json">{"id": "p20", "title": "Helicopter Swashplate", "category": "Aerospace Engineering", "silhouette": "aircraft", "slowMotion": false, "falseColor": false, "nodes": [{"id": "n1", "glyph": "srr", "label": "Rings", "role": "path", "x": 0.12, "y": 0.32}, {"id": "n2", "glyph": "fiber", "label": "Links", "role": "path", "x": 0.373, "y": 0.32}, {"id": "n3", "glyph": "link", "label": "Collective", "role": "path", "x": 0.627, "y": 0.32}, {"id": "n4", "glyph": "swash", "label": "Cyclic while rotating ring turns", "role": "path", "x": 0.88, "y": 0.32}, {"id": "n5", "glyph": "link", "label": "Pitch-link", "role": "path", "x": 0.2, "y": 0.68}, {"id": "n6", "glyph": "blade", "label": "Blade feathering", "role": "path", "x": 0.52, "y": 0.68}, {"id": "n7", "glyph": "telemetry", "label": "Rotor response", "role": "path", "x": 0.84, "y": 0.68}], "edges": [{"from": "n1", "to": "n2", "role": "path", "start": 0, "end": 1019}, {"from": "n2", "to": "n3", "role": "path", "start": 150, "end": 1019}, {"from": "n3", "to": "n4", "role": "path", "start": 300, "end": 1019}, {"from": "n4", "to": "n5", "role": "path", "start": 510, "end": 1019}, {"from": "n5", "to": "n6", "role": "path", "start": 510, "end": 1019}, {"from": "n6", "to": "n7", "role": "path", "start": 750, "end": 1019}], "emphasis": [["n1", "n2"], ["n3"], ["n4"], ["n5", "n6"], ["n7"]], "stages": [{"f0": 0, "f1": 149, "action": "Reveal rings and links", "detail": "Earlier hardware stays in frame. This step changes only what is emphasized."}, {"f0": 150, "f1": 299, "action": "Translate collective", "detail": "Earlier hardware stays in frame. This step changes only what is emphasized."}, {"f0": 300, "f1": 509, "action": "Tilt cyclic while rotating ring turns", "detail": "Earlier hardware stays in frame. This step changes only what is emphasized."}, {"f0": 510, "f1": 749, "action": "Trace pitch-link and blade feathering", "detail": "Earlier hardware stays in frame. This step changes only what is emphasized."}, {"f0": 750, "f1": 1019, "action": "Pull back to rotor response", "detail": "Earlier hardware stays in frame. This step changes only what is emphasized."}]}</script>
+<script src="engine.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var scene = JSON.parse(document.getElementById("scene-data").textContent);
+  window.KGExplainer.boot(scene);
+});
+</script>
+</body>
+</html>
