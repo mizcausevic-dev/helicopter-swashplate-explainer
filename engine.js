@@ -1141,15 +1141,7 @@
     }
     var a = cen(prev);
     var b = cen(nodes);
-    var e = si === 0 ? smooth(Math.min(1, local / 0.45)) : smooth(Math.min(1, local / 0.32));
-    var z1 = si === 4 ? 1.02 : 1.12;
-    var z0 = si === 0 ? 1.0 : 1.06;
-    return {
-      x: a.x + (b.x - a.x) * e,
-      y: a.y + (b.y - a.y) * e,
-      z: z0 + (z1 - z0) * e,
-      si: si
-    };
+    return { x: 0.5, y: 0.48, z: 1, si: si };
   }
 
   function drawSilhouette(ctx, kind) {
@@ -1195,15 +1187,17 @@
 
   function drawLabel(ctx, node, p, on) {
     ctx.font = "600 12px ui-sans-serif, Segoe UI, sans-serif";
-    var lines = wrap(ctx, node.label, 148);
+    var lines = wrap(ctx, node.label, 128);
     var w = 0;
     var i;
     for (i = 0; i < lines.length; i++) w = Math.max(w, ctx.measureText(lines[i]).width);
-    w = Math.min(156, w + 14);
+    w = Math.min(136, w + 14);
     var h = lines.length * 15 + 8;
+    var above = node.y < 0.45;
     var lx = p.x - w / 2;
-    var ly = p.y + 48;
-    if (ly + h > 680) ly = p.y - 48 - h;
+    var ly = above ? p.y - 28 - h : p.y + 36;
+    if (lx < 28) lx = 28;
+    if (lx + w > 1172) lx = 1172 - w;
     ctx.fillStyle = "rgba(11,16,25,.86)";
     roundRect(ctx, lx, ly, w, h, 5);
     ctx.fill();
@@ -1257,6 +1251,7 @@
     var accent = roleColor(node.role);
     ctx.save();
     ctx.translate(p.x, p.y);
+    ctx.scale(0.72, 0.72);
     if (on) {
       ctx.shadowColor = accent;
       ctx.shadowBlur = 16;

@@ -11,7 +11,7 @@
       "glyph": "srr",
       "label": "Rings",
       "role": "path",
-      "x": 0.12,
+      "x": 0.14,
       "y": 0.32
     },
     {
@@ -19,7 +19,7 @@
       "glyph": "fiber",
       "label": "Links",
       "role": "path",
-      "x": 0.373,
+      "x": 0.38,
       "y": 0.32
     },
     {
@@ -27,7 +27,7 @@
       "glyph": "link",
       "label": "Collective",
       "role": "path",
-      "x": 0.627,
+      "x": 0.62,
       "y": 0.32
     },
     {
@@ -35,7 +35,7 @@
       "glyph": "swash",
       "label": "Cyclic while rotating ring turns",
       "role": "path",
-      "x": 0.88,
+      "x": 0.86,
       "y": 0.32
     },
     {
@@ -43,24 +43,24 @@
       "glyph": "link",
       "label": "Pitch-link",
       "role": "path",
-      "x": 0.2,
-      "y": 0.68
+      "x": 0.14,
+      "y": 0.7
     },
     {
       "id": "n6",
       "glyph": "blade",
       "label": "Blade feathering",
       "role": "path",
-      "x": 0.52,
-      "y": 0.68
+      "x": 0.5,
+      "y": 0.7
     },
     {
       "id": "n7",
       "glyph": "telemetry",
       "label": "Rotor response",
       "role": "path",
-      "x": 0.84,
-      "y": 0.68
+      "x": 0.86,
+      "y": 0.7
     }
   ],
   "edges": [
