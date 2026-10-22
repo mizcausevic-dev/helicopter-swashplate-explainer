@@ -56,3 +56,25 @@ export const GEO = {
   scissorB: 0.64,
   ballR: 0.1,
 };
+
+export const STAGES = [
+  { id: "rings", start: 0, end: 149, title: "Rings and links", clock: "0:00 to 0:05" },
+  { id: "collective", start: 150, end: 299, title: "Collective translation", clock: "0:05 to 0:10" },
+  { id: "cyclic", start: 300, end: 509, title: "Cyclic tilt", clock: "0:10 to 0:17" },
+  { id: "feather", start: 510, end: 749, title: "Pitch link and feather", clock: "0:17 to 0:25" },
+  { id: "response", start: 750, end: 1019, title: "Rotor state", clock: "0:25 to 0:34" },
+];
+
+export const SOURCE = {
+  handbook: "FAA-H-8083-21B, Helicopter Flying Handbook",
+  swashUrl: "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/helicopter_flying_handbook/hfh_ch04.pdf",
+  controlsUrl: "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/helicopter_flying_handbook/hfh_ch03.pdf",
+};
+
+const NARRATION = [
+  "The swash plate converts stationary pilot inputs into rotating blade inputs. The lower ring does not rotate. An anti-drive link holds it. The upper ring is driven with the mast and keeps a fixed relationship to the rotor. Both rings tilt and slide as one unit. A later cut in this shot is only a viewing plane through the uniball sleeve.",
+  "Collective raises the whole unit. In this illustrated linkage every pitch link moves together, so every blade changes feather together. The handbook describes that pilot result: raising the collective increases the pitch angle of all main rotor blades equally. Horn and rod geometry that produces the sense is design-specific.",
+  "Cyclic tilts the stationary ring and holds that tilt in the helicopter frame. The rotating ring turns in the tilted plane, so each pitch link rises and falls once per revolution. Tilt size is exaggerated. The three rods are a schematic input pattern, not a specific control system.",
+  "One pitch link, followed. Its rise and fall rotates the pitch horn and feathers that blade about the spanwise feathering axis. The other blades stay in view because they share the ring. Lug clocking is simplified. Real clocking sets control phase and depends on the design.",
+  "The view returns to the whole rotor. At this instant the blades show different feather angles because they sit at different azimuths on a tilted plate. The violet plot is that mechanical state. It is not a map of rotor-disc tilt. Disc response is omitted: phase depends on the rotor, and there is no universal same-azimuth result.",
+];
