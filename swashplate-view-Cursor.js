@@ -128,3 +128,150 @@ function addQuad(list, a, b, c, d, color, clip = true, shiny = false) {
   if (hypot3(cross(sub(b, a), sub(d, a))) < 1e-8) return;
   list.push(face([a, b, c, d], color, clip, shiny));
 }
+
+function addCylinder(list, a, b, radius, color, segs = 10, clip = true) {
+  const axis = sub(b, a);
+  const len = hypot3(axis);
+  if (len < 1e-5) return;
+  const dir = scale(axis, 1 / len);
+  const tmp = Math.abs(dir[1]) < 0.92 ? [0, 1, 0] : [1, 0, 0];
+  const u = normalize(cross(dir, tmp));
+  const v = cross(dir, u);
+  const ringA = [];
+  const ringB = [];
+  for (let i = 0; i < segs; i++) {
+    const t = (i / segs) * Math.PI * 2;
+    const off = add(scale(u, Math.cos(t) * radius), scale(v, Math.sin(t) * radius));
+    ringA.push(add(a, off));
+    ringB.push(add(b, off));
+  }
+  for (let i = 0; i < segs; i++) {
+    const j = (i + 1) % segs;
+    addQuad(list, ringA[i], ringB[i], ringB[j], ringA[j], color, clip);
+  }
+  list.push(face(ringB, color, clip));
+  list.push(face(ringA.slice().reverse(), color, clip));
+}
+
+function addBox(list, center, hx, hy, hz, color) {
+  const [x, y, z] = center;
+  const p = (sx, sy, sz) => [x + sx * hx, y + sy * hy, z + sz * hz];
+  addQuad(list, p(-1, -1, 1), p(1, -1, 1), p(1, 1, 1), p(-1, 1, 1), color);
+  addQuad(list, p(1, -1, -1), p(-1, -1, -1), p(-1, 1, -1), p(1, 1, -1), color);
+  addQuad(list, p(-1, 1, 1), p(1, 1, 1), p(1, 1, -1), p(-1, 1, -1), color);
+  addQuad(list, p(-1, -1, -1), p(1, -1, -1), p(1, -1, 1), p(-1, -1, 1), color);
+  addQuad(list, p(1, -1, 1), p(1, -1, -1), p(1, 1, -1), p(1, 1, 1), color);
+  addQuad(list, p(-1, -1, -1), p(-1, -1, 1), p(-1, 1, 1), p(-1, 1, -1), color);
+}
+
+function addSphere(list, c, radius, color, stacks = 7, slices = 10, shiny = false) {
+  for (let i = 0; i < stacks; i++) {
+    const t0 = (i / stacks) * Math.PI;
+    const t1 = ((i + 1) / stacks) * Math.PI;
+    for (let j = 0; j < slices; j++) {
+      const p0 = (j / slices) * Math.PI * 2;
+      const p1 = ((j + 1) / slices) * Math.PI * 2;
+      const v = (t, p) => [
+        c[0] + radius * Math.sin(t) * Math.cos(p),
+        c[1] + radius * Math.cos(t),
+        c[2] + radius * Math.sin(t) * Math.sin(p),
+      ];
+      addQuad(list, v(t0, p0), v(t1, p0), v(t1, p1), v(t0, p1), color, true, shiny);
+    }
+  }
+}
+
+function addAnnulus(list, basis, yOffset, rIn, rOut, halfT, color) {
+  const segs = 48;
+  const top = mix(color, 1.18);
+  const bot = mix(color, 0.72);
+  const ring = (az, rad, sign) => onPlate(basis, az, rad, yOffset + sign * halfT);
+  for (let i = 0; i < segs; i++) {
+    const a0 = (i / segs) * Math.PI * 2;
+    const a1 = ((i + 1) / segs) * Math.PI * 2;
+    addQuad(list, ring(a0, rOut, -1), ring(a0, rOut, 1), ring(a1, rOut, 1), ring(a1, rOut, -1), color);
+    addQuad(list, ring(a0, rIn, 1), ring(a0, rIn, -1), ring(a1, rIn, -1), ring(a1, rIn, 1), bot);
+    addQuad(list, ring(a0, rIn, 1), ring(a1, rIn, 1), ring(a1, rOut, 1), ring(a0, rOut, 1), top);
+    addQuad(list, ring(a0, rOut, -1), ring(a1, rOut, -1), ring(a1, rIn, -1), ring(a0, rIn, -1), bot);
+  }
+}
+
+function addBlade(list, blade, color) {
+  const stations = 7;
+  const length = 1.82;
+  const sections = [];
+  const shape = [[0.52, 0], [0.18, 0.42], [-0.22, 0.3], [-0.5, 0], [-0.22, -0.3], [0.18, -0.42]];
+  for (let i = 0; i <= stations; i++) {
+    const s = i / stations;
+    const chord = 0.28 * (1 - s) + 0.07 * s;
+    const thick = 0.045 * (1 - s) + 0.012 * s;
+    const origin = add(blade.axis, scale(blade.radial, 0.06 + length * s));
+    const ct = Math.cos(blade.feather);
+    const st = Math.sin(blade.feather);
+    const lead = add(scale(blade.tangent, ct), [0, st, 0]);
+    const thickAxis = add(scale(blade.tangent, -st), [0, ct, 0]);
+    sections.push(shape.map(([lc, tc]) => add(origin, scale(lead, lc * chord), scale(thickAxis, tc * thick))));
+  }
+  for (let i = 0; i < stations; i++) {
+    const a = sections[i];
+    const b = sections[i + 1];
+    for (let k = 0; k < shape.length; k++) {
+      const j = (k + 1) % shape.length;
+      addQuad(list, a[k], b[k], b[j], a[j], color);
+    }
+  }
+  list.push(face(sections[0], mix(color, 0.8)));
+  list.push(face(sections[stations].slice().reverse(), mix(color, 1.1)));
+}
+
+function buildScene(frame) {
+  const faces = [];
+  const p = pose(frame);
+  const basis = plateBasis(p.h, p.beta, p.psiHigh);
+  const blades = bladeStates(frame);
+  const servos = stationaryLugs(frame);
+  const drives = driveLinks(frame);
+  const scissor = antiDrive(frame);
+  const stage = stageAt(frame).id;
+  const focus = stage === "feather" ? 0 : -1;
+
+  addBox(faces, [0, -0.08, 0], 0.46, 0.16, 0.34, METAL_DEEP);
+  addCylinder(faces, [0, -0.12, 0], [0, 1.2, 0], GEO.mastR, METAL_DARK, 24);
+  addCylinder(faces, [0, p.h - 0.09, 0], [0, p.h + 0.05, 0], 0.09, METAL, 20);
+  addSphere(faces, [0, p.h, 0], GEO.ballR, [150, 164, 180], 12, 18, true);
+  addAnnulus(faces, basis, 0, GEO.plateIn, GEO.plateOut, GEO.plateHalfT, METAL);
+  addAnnulus(faces, basis, GEO.ringGap, GEO.plateIn + 0.015, GEO.plateOut - 0.02, GEO.plateHalfT * 0.92, [62, 78, 100]);
+  addCylinder(faces, [0, 0.98, 0], [0, 1.22, 0], GEO.hubR, METAL, 28);
+
+  for (let i = 0; i < 12; i++) {
+    const az = p.theta + (i / 12) * Math.PI * 2;
+    const c = onPlate(basis, az, (GEO.plateIn + GEO.plateOut) * 0.5, GEO.ringGap * 0.5);
+    addSphere(faces, c, 0.012, [176, 186, 198], 4, 6, true);
+  }
+
+  servos.forEach((servo) => {
+    const top = add(servo.base, [0, 0.12, 0]);
+    addCylinder(faces, servo.base, top, 0.028, METAL_DARK, 8);
+    addCylinder(faces, top, servo.lug, 0.012, METAL, 6);
+    const band = add(top, scale(sub(servo.lug, top), 0.16));
+    addSphere(faces, band, 0.02, BRASS, 4, 6);
+  });
+
+  addCylinder(faces, scissor.bracket, scissor.hinge, 0.012, METAL, 6);
+  addCylinder(faces, scissor.hinge, scissor.lug, 0.012, METAL, 6);
+  addSphere(faces, scissor.hinge, 0.02, METAL, 4, 6);
+
+  drives.forEach((link) => addCylinder(faces, link.upper, link.lower, 0.011, METAL, 6));
+
+  blades.forEach((blade) => {
+    const dim = focus === 0 && blade.index !== 0 ? 0.62 : 1;
+    const color = mix(BLADE, dim);
+    addCylinder(faces, add(scale(blade.radial, 0.13), [0, GEO.hornY, 0]), blade.axis, 0.02, mix(METAL, dim), 8);
+    addCylinder(faces, blade.axis, blade.tip, 0.014, mix(METAL, dim), 6);
+    addSphere(faces, blade.tip, 0.02, mix([140, 152, 168], dim), 4, 6);
+    addCylinder(faces, blade.lug, blade.tip, 0.016, mix(METAL, dim), 6);
+    addBlade(faces, blade, color);
+  });
+
+  return { faces, p, basis, blades, servos, drives, scissor, stage };
+}
