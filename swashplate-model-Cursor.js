@@ -356,3 +356,78 @@ export function bladeStates(frame) {
   }
   return blades;
 }
+
+export function stationaryLugs(frame) {
+  const p = pose(frame);
+  const basis = plateBasis(p.h, p.beta, p.psiHigh);
+  return GEO.servoAz.map((azimuth, i) => ({
+    index: i,
+    azimuth,
+    lug: onPlate(basis, azimuth, GEO.lugR, 0),
+    base: [
+      Math.cos(azimuth) * GEO.servoR,
+      GEO.servoY,
+      -Math.sin(azimuth) * GEO.servoR,
+    ],
+  }));
+}
+
+export function driveLinks(frame) {
+  const p = pose(frame);
+  const basis = plateBasis(p.h, p.beta, p.psiHigh);
+  return GEO.driveAz.map((offset) => {
+    const azimuth = p.theta + offset;
+    const upper = [
+      Math.cos(azimuth) * 0.12,
+      0.86,
+      -Math.sin(azimuth) * 0.12,
+    ];
+    const lower = onPlate(basis, azimuth, GEO.plateOut - 0.02, GEO.ringGap);
+    return { azimuth, upper, lower };
+  });
+}
+
+export function sphereHinge(a, b, la, lb, prefer) {
+  const delta = sub(b, a);
+  const d = hypot3(delta) || 1e-8;
+  const ex = scale(delta, 1 / d);
+  const along = (la * la - lb * lb + d * d) / (2 * d);
+  const h2 = la * la - along * along;
+  const h = Math.sqrt(Math.max(0, h2));
+  const mid = add(a, scale(ex, along));
+  let side = sub(prefer, scale(ex, dot(prefer, ex)));
+  if (hypot3(side) < 1e-6) side = [0, 1, 0];
+  side = normalize(side);
+  return {
+    hinge: add(mid, scale(side, h)),
+    reach: d <= la + lb + 1e-6 && d + 1e-6 >= Math.abs(la - lb) && h2 >= -1e-6,
+    separation: d,
+  };
+}
+
+export function antiDrive(frame) {
+  const p = pose(frame);
+  const basis = plateBasis(p.h, p.beta, p.psiHigh);
+  const lug = onPlate(basis, GEO.antiAz, GEO.plateOut + 0.01, 0);
+  const prefer = add(normalize([lug[0], 0.35, lug[2]]), [0, 0.45, 0]);
+  const solved = sphereHinge(GEO.bracket, lug, GEO.scissorA, GEO.scissorB, prefer);
+  return { lug, bracket: GEO.bracket, hinge: solved.hinge, reach: solved.reach, separation: solved.separation };
+}
+
+export function featherSeries(frame, samples = 72) {
+  const p = pose(frame);
+  const basis = plateBasis(p.h, p.beta, p.psiHigh);
+  const rows = [];
+  for (let i = 0; i <= samples; i++) {
+    const azimuth = (i / samples) * Math.PI * 2;
+    const lug = onPlate(basis, azimuth, GEO.lugR, GEO.ringGap);
+    const solved = solveFeather(lug, azimuth);
+    rows.push({
+      azimuth,
+      deg: (azimuth * 180) / Math.PI,
+      feather: solved.feather,
+      featherDeg: (solved.feather * 180) / Math.PI,
+    });
+  }
+  return rows;
+}
