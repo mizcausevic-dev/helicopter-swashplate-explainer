@@ -276,3 +276,83 @@ export function radialAt(azimuth) {
 export function tangentAt(azimuth) {
   return [-Math.sin(azimuth), 0, -Math.cos(azimuth)];
 }
+
+function dist(a, b) {
+  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+}
+
+let restLinkLength = null;
+
+function hornTip(azimuth, feather) {
+  const axis = scale(radialAt(azimuth), GEO.hornRadial);
+  axis[1] = GEO.hornY;
+  const tip = add(
+    axis,
+    scale(tangentAt(azimuth), GEO.hornLen * Math.cos(feather)),
+    scale([0, 1, 0], GEO.hornLen * Math.sin(feather)),
+  );
+  return { axis, tip };
+}
+
+function linkLengthAt(frame, azimuth, feather) {
+  const p = pose(frame);
+  const basis = plateBasis(p.h, p.beta, p.psiHigh);
+  const lug = onPlate(basis, azimuth, GEO.lugR, GEO.ringGap);
+  return dist(lug, hornTip(azimuth, feather).tip);
+}
+
+function neutralLinkLength() {
+  if (restLinkLength == null) restLinkLength = linkLengthAt(0, 0, 0);
+  return restLinkLength;
+}
+
+export function solveFeather(lug, azimuth) {
+  const target = neutralLinkLength();
+  const tipAt = (phi) => hornTip(azimuth, phi).tip;
+  const error = (phi) => dist(tipAt(phi), lug) - target;
+  let phi = 0;
+  let best = Infinity;
+  for (let i = 0; i <= 28; i++) {
+    const guess = -0.2 + (1.5 * i) / 28;
+    const e = Math.abs(error(guess));
+    if (e < best) {
+      best = e;
+      phi = guess;
+    }
+  }
+  for (let k = 0; k < 12; k++) {
+    const e = error(phi);
+    const d = (error(phi + 1e-4) - error(phi - 1e-4)) / 2e-4;
+    if (Math.abs(d) < 1e-8) break;
+    phi -= e / d;
+  }
+  return { feather: phi, residual: error(phi), tip: tipAt(phi), axis: hornTip(azimuth, phi).axis };
+}
+
+export function bladeAzimuth(frame, index) {
+  return rotorTheta(frame) + index * (Math.PI / 2);
+}
+
+export function bladeStates(frame) {
+  const p = pose(frame);
+  const basis = plateBasis(p.h, p.beta, p.psiHigh);
+  const blades = [];
+  for (let i = 0; i < 4; i++) {
+    const azimuth = bladeAzimuth(frame, i);
+    const lug = onPlate(basis, azimuth, GEO.lugR, GEO.ringGap);
+    const solved = solveFeather(lug, azimuth);
+    blades.push({
+      index: i,
+      name: "ABCD"[i],
+      azimuth,
+      feather: solved.feather,
+      residual: solved.residual,
+      lug,
+      tip: solved.tip,
+      axis: solved.axis,
+      radial: radialAt(azimuth),
+      tangent: tangentAt(azimuth),
+    });
+  }
+  return blades;
+}
