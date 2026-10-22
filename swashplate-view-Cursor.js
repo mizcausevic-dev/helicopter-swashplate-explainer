@@ -354,3 +354,94 @@ function plateRim(basis, cam, color, width) {
   for (let i = 0; i <= 64; i++) pts.push(onPlate(basis, (i / 64) * Math.PI * 2, GEO.plateOut, GEO.plateHalfT));
   strokeLoop(pts, cam, color, width, [7, 5]);
 }
+
+function paintScene(scene, cam) {
+  const { faces, p } = scene;
+  const drawn = [];
+  for (const f of faces) {
+    const inStack = f.centroid[1] > p.h - 0.16 && f.centroid[1] < p.h + GEO.ringGap + 0.12;
+    const cutAway = p.section > 0.82 && f.clip && inStack && f.centroid[0] < -0.02;
+    if (cutAway) continue;
+    const toCam = normalize(sub(cam.pos, f.centroid));
+    if (dot(f.n, toCam) <= 0.02) continue;
+    const depth = hypot3(sub(f.centroid, cam.pos));
+    const alpha = p.section > 0.2 && f.clip && inStack && f.centroid[0] < -0.02 ? 1 - p.section : 1;
+    drawn.push({ f, depth, alpha });
+  }
+  drawn.sort((a, b) => b.depth - a.depth);
+  for (const item of drawn) {
+    ctx.beginPath();
+    let ok = true;
+    item.f.pts.forEach((p3, i) => {
+      const q = project(p3, cam);
+      if (!q.visible) ok = false;
+      if (i === 0) ctx.moveTo(q.x * dpr, q.y * dpr);
+      else ctx.lineTo(q.x * dpr, q.y * dpr);
+    });
+    if (!ok) continue;
+    ctx.closePath();
+    ctx.fillStyle = shade(item.f.color, item.f.n, item.f.centroid, cam.pos, item.f.shiny);
+    ctx.globalAlpha = Math.max(0, item.alpha);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawSection(scene, cam) {
+  const { p } = scene;
+  if (p.section < 0.45) return;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, (p.section - 0.45) / 0.35);
+  ctx.fillStyle = "#243140";
+  ctx.strokeStyle = "rgba(0, 229, 255, 0.7)";
+  ctx.lineWidth = 1.25 * dpr;
+  fillCircle([0.004, p.h, 0], GEO.ballR, cam);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(231, 237, 245, 0.55)";
+  strokeCircle([0.004, p.h, 0], GEO.mastR, cam);
+  ctx.fillStyle = "#3d4e64";
+  rectSection(p.h, 0, GEO.plateHalfT, GEO.plateIn, GEO.plateOut, cam);
+  rectSection(p.h, GEO.ringGap, GEO.plateHalfT * 0.92, GEO.plateIn + 0.015, GEO.plateOut - 0.02, cam);
+  ctx.restore();
+}
+
+function rectSection(h, lift, halfT, rIn, rOut, cam) {
+  for (const sign of [1, -1]) {
+    const y0 = h + lift - halfT;
+    const y1 = h + lift + halfT;
+    const z0 = sign * rIn;
+    const z1 = sign * rOut;
+    const pts = [[0.004, y0, z0], [0.004, y1, z0], [0.004, y1, z1], [0.004, y0, z1]];
+    ctx.beginPath();
+    pts.forEach((p, i) => {
+      const q = project(p, cam);
+      if (i === 0) ctx.moveTo(q.x * dpr, q.y * dpr);
+      else ctx.lineTo(q.x * dpr, q.y * dpr);
+    });
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+}
+
+function fillCircle(c, r, cam) {
+  ctx.beginPath();
+  for (let i = 0; i <= 28; i++) {
+    const a = (i / 28) * Math.PI * 2;
+    const q = project([c[0], c[1] + Math.cos(a) * r, c[2] + Math.sin(a) * r], cam);
+    if (i === 0) ctx.moveTo(q.x * dpr, q.y * dpr);
+    else ctx.lineTo(q.x * dpr, q.y * dpr);
+  }
+  ctx.fill();
+}
+
+function strokeCircle(c, r, cam) {
+  ctx.beginPath();
+  for (let i = 0; i <= 28; i++) {
+    const a = (i / 28) * Math.PI * 2;
+    const q = project([c[0], c[1] + Math.cos(a) * r, c[2] + Math.sin(a) * r], cam);
+    if (i === 0) ctx.moveTo(q.x * dpr, q.y * dpr);
+    else ctx.lineTo(q.x * dpr, q.y * dpr);
+  }
+  ctx.stroke();
+}
