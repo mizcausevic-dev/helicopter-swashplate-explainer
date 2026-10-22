@@ -78,3 +78,118 @@ const NARRATION = [
   "One pitch link, followed. Its rise and fall rotates the pitch horn and feathers that blade about the spanwise feathering axis. The other blades stay in view because they share the ring. Lug clocking is simplified. Real clocking sets control phase and depends on the design.",
   "The view returns to the whole rotor. At this instant the blades show different feather angles because they sit at different azimuths on a tilted plate. The violet plot is that mechanical state. It is not a map of rotor-disc tilt. Disc response is omitted: phase depends on the rotor, and there is no universal same-azimuth result.",
 ];
+
+export function stageAt(frame) {
+  const f = clampFrame(frame);
+  for (let i = 0; i < STAGES.length; i++) {
+    if (f <= STAGES[i].end) return { ...STAGES[i], index: i };
+  }
+  return { ...STAGES[4], index: 4 };
+}
+
+export function narration(frame) {
+  return NARRATION[stageAt(frame).index];
+}
+
+export function timecode(frame) {
+  const ms = Math.round(clampFrame(frame) * 1000 / FPS);
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  const frac = ms % 1000;
+  return `${m}:${String(rem).padStart(2, "0")}.${String(frac).padStart(3, "0")}`;
+}
+
+function clampFrame(frame) {
+  if (frame < 0) return 0;
+  if (frame > 1019) return 1019;
+  return frame;
+}
+
+export function smootherstep(t) {
+  const x = t < 0 ? 0 : t > 1 ? 1 : t;
+  return x * x * x * (x * (x * 6 - 15) + 10);
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function window01(frame, a, b) {
+  if (frame <= a || frame >= b) return frame >= b ? 1 : 0;
+  return smootherstep((frame - a) / (b - a));
+}
+
+function omega(frame) {
+  const keys = [
+    [0, 0.008],
+    [149, 0.01],
+    [300, 0.012],
+    [345, 0.072],
+    [490, 0.072],
+    [545, 0.031],
+    [730, 0.031],
+    [900, 0.012],
+    [980, 0],
+    [1019, 0],
+  ];
+  if (frame <= keys[0][0]) return keys[0][1];
+  for (let i = 0; i < keys.length - 1; i++) {
+    const [f0, w0] = keys[i];
+    const [f1, w1] = keys[i + 1];
+    if (frame <= f1) {
+      const t = (frame - f0) / (f1 - f0);
+      return lerp(w0, w1, t);
+    }
+  }
+  return 0;
+}
+
+const THETA = (() => {
+  const out = new Array(FRAME_COUNT);
+  let theta = 0;
+  out[0] = 0;
+  for (let f = 0; f < FRAME_COUNT - 1; f++) {
+    theta += 0.5 * (omega(f) + omega(f + 1));
+    out[f + 1] = theta;
+  }
+  return out;
+})();
+
+export function rotorTheta(frame) {
+  return THETA[clampFrame(frame)];
+}
+
+export function collectiveAmount(frame) {
+  return window01(frame, 150, 236);
+}
+
+export function cyclicAmount(frame) {
+  return window01(frame, 300, 430);
+}
+
+export function sectionAmount(frame) {
+  const f = clampFrame(frame);
+  if (f < 96) return 0;
+  if (f < 132) return smootherstep((f - 96) / 36);
+  if (f < 150) return 1;
+  if (f < 188) return 1 - smootherstep((f - 150) / 38);
+  return 0;
+}
+
+export function pose(frame) {
+  const f = clampFrame(frame);
+  const collective = collectiveAmount(f);
+  const cyclic = cyclicAmount(f);
+  return {
+    frame: f,
+    collective,
+    cyclic,
+    section: sectionAmount(f),
+    theta: THETA[f],
+    h: GEO.hRest + collective * GEO.hRise,
+    beta: cyclic * GEO.betaMax,
+    psiHigh: GEO.psiHigh,
+    omega: omega(f),
+  };
+}
