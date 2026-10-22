@@ -534,3 +534,127 @@ export function safeguardsText() {
     "Cyan marks the primary control pathway, gold marks actuation, and violet marks mechanical state. Those colors are annotations, not material emission. No personal data is collected.",
   ];
 }
+
+function nearlyEqual(a, b, eps) {
+  return Math.abs(a - b) <= eps;
+}
+
+export function linkageAudit() {
+  const failures = [];
+  const check = (cond, message) => {
+    if (!cond) failures.push(message);
+  };
+
+  check(FRAME_COUNT === 1020, "frame count");
+  check(DURATION_S === 34, "duration");
+  check(rotorTheta(0) === 0, "theta origin");
+  check(nearlyEqual(rotorTheta(1019), rotorTheta(980), 1e-9), "held ending angle");
+  check(rotorTheta(500) > rotorTheta(300), "theta advances in cyclic stage");
+
+  const stage3 = rotorTheta(509) - rotorTheta(300);
+  check(stage3 > Math.PI * 3.2 && stage3 < Math.PI * 5.2, `stage 3 turn ${stage3.toFixed(3)} rad`);
+  const stage4 = rotorTheta(749) - rotorTheta(510);
+  check(stage4 > Math.PI * 1.5 && stage4 < Math.PI * 3.2, `stage 4 turn ${stage4.toFixed(3)} rad`);
+
+  for (let f = 0; f < 1019; f++) check(rotorTheta(f + 1) + 1e-12 >= rotorTheta(f), `theta monotonic ${f}`);
+
+  check(collectiveAmount(0) === 0 && collectiveAmount(149) === 0, "collective waits");
+  check(collectiveAmount(299) === 1 && cyclicAmount(299) === 0, "collective held before cyclic");
+  check(cyclicAmount(299) === 0 && cyclicAmount(509) === 1, "cyclic ramp");
+  check(sectionAmount(90) === 0 && sectionAmount(140) > 0.8 && sectionAmount(400) === 0, "section window");
+
+  const rest = bladeStates(0);
+  check(rest.every((b) => Math.abs(b.feather) < 0.03), "near-zero feather at rest");
+  check(rest.every((b) => Math.abs(b.residual) < 0.008), "rest residual");
+
+  const mid = bladeStates(220);
+  const midSpread = Math.max(...mid.map((b) => b.feather)) - Math.min(...mid.map((b) => b.feather));
+  check(midSpread < 0.02, `collective blades match ${midSpread}`);
+  check(mid.every((b) => b.feather > 0.25), "collective increases illustrated feather");
+
+  const tilted = bladeStates(460);
+  const spread = Math.max(...tilted.map((b) => b.feather)) - Math.min(...tilted.map((b) => b.feather));
+  check(spread > 0.25, `cyclic spread ${spread}`);
+
+  const series = featherSeries(460, 36);
+  let maxRow = series[0];
+  let minRow = series[0];
+  for (const row of series) {
+    if (row.feather > maxRow.feather) maxRow = row;
+    if (row.feather < minRow.feather) minRow = row;
+  }
+  const highDeg = ((maxRow.deg + 360) % 360);
+  const lowDeg = ((minRow.deg + 360) % 360);
+  check(highDeg < 18 || highDeg > 342, `high side azimuth ${highDeg}`);
+  check(Math.abs(lowDeg - 180) < 18, `low side azimuth ${lowDeg}`);
+
+  const statA = stationaryLugs(450).map((s) => s.lug);
+  const statB = stationaryLugs(480).map((s) => s.lug);
+  check(statA.every((lug, i) => dist(lug, statB[i]) < 1e-9), "stationary lugs ignore rotor angle");
+  const rotA = bladeStates(450)[0].lug;
+  const rotB = bladeStates(480)[0].lug;
+  check(dist(rotA, rotB) > 0.05, "rotating lug moves with the rotor");
+
+  let worstResidual = 0;
+  let scissorMiss = 0;
+  for (let f = 0; f < FRAME_COUNT; f += 1) {
+    const blades = bladeStates(f);
+    for (const blade of blades) worstResidual = Math.max(worstResidual, Math.abs(blade.residual));
+    if (!antiDrive(f).reach) scissorMiss += 1;
+  }
+  check(worstResidual < 0.01, `residual ${worstResidual}`);
+  check(scissorMiss === 0, `scissor reach misses ${scissorMiss}`);
+
+  const basis = plateBasis(0.5, 0.3, 0);
+  const front = onPlate(basis, 0, 0.3, 0);
+  const aft = onPlate(basis, Math.PI, 0.3, 0);
+  check(front[1] > aft[1] + 0.05, "forward high side");
+
+  let maxStep = 0;
+  let cutAt = -1;
+  for (let f = 0; f < 1019; f++) {
+    const step = dist(camera(f).pos, camera(f + 1).pos);
+    if (step > maxStep) {
+      maxStep = step;
+      cutAt = f;
+    }
+  }
+  check(maxStep < 0.18, `camera step ${maxStep.toFixed(4)} at ${cutAt}`);
+  check(dist(camera(1019).pos, camera(980).pos) < 1e-9, "hero camera held");
+  check(dist(camera(749).pos, camera(750).pos) < 0.18, "stage 4 to 5 camera continuity");
+  let near = 99;
+  for (let f = 0; f < FRAME_COUNT; f += 1) near = Math.min(near, hypot3(camera(f).pos));
+  check(near > 1.8, `camera entered the head ${near.toFixed(3)}`);
+
+  const cam = camera(200);
+  const center = projectPoint(cam.look, cam, 1280, 720);
+  check(center.visible && Math.hypot(center.x - 640, center.y - 360) < 1.5, "look target centers");
+
+  const blob = JSON.stringify({ NARRATION, badges: badges(400), safe: safeguardsText() });
+  check(!blob.includes("\u2014"), "no em dash");
+  check(!/rpm\s*\d/i.test(blob) && !/\d+\s*rpm/i.test(blob), "no numeric rpm");
+  check(safeguardsText().some((line) => /not a certified/i.test(line)), "safeguard present");
+
+  const samples = [0, 80, 200, 400, 640, 980].map((f) => {
+    const blades = bladeStates(f);
+    return {
+      frame: f,
+      stage: stageAt(f).id,
+      collective: Number(collectiveAmount(f).toFixed(3)),
+      cyclic: Number(cyclicAmount(f).toFixed(3)),
+      feathers: blades.map((b) => Number(((b.feather * 180) / Math.PI).toFixed(2))),
+    };
+  });
+
+  return {
+    ok: failures.length === 0,
+    failures,
+    summary: {
+      stage3Turns: Number((stage3 / (Math.PI * 2)).toFixed(3)),
+      stage4Turns: Number((stage4 / (Math.PI * 2)).toFixed(3)),
+      worstResidual,
+      maxCameraStep: Number(maxStep.toFixed(4)),
+      samples,
+    },
+  };
+}
