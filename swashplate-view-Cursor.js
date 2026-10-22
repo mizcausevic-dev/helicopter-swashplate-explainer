@@ -518,3 +518,65 @@ function drawOverlays(scene, cam) {
   });
   ctx.restore();
 }
+
+function labelSet(scene) {
+  const { blades, servos, scissor, drives, p, stage } = scene;
+  const compact = cssW < 800;
+  const all = [
+    { text: "Stationary swash plate", at: onPlate(plateBasis(p.h, p.beta, p.psiHigh), 0.4, GEO.plateOut, 0), dx: 22, dy: 26, kind: "path", show: stage !== "feather" },
+    { text: "Rotating swash plate", at: blades[0].lug, dx: 24, dy: -30, kind: "path", show: true },
+    { text: "Anti-drive link", at: scissor.hinge, dx: 18, dy: 24, kind: "", show: stage === "rings" },
+    { text: "Drive link", at: drives[0].upper, dx: 16, dy: -22, kind: "path", show: stage === "rings" || stage === "cyclic" },
+    { text: "Uniball sleeve", at: [0, p.h, 0.02], dx: 20, dy: -6, kind: "path", show: p.section > 0.55 },
+    { text: "Schematic servo rod", at: servos[0].base, dx: 16, dy: 18, kind: "act", show: stage === "collective" || stage === "cyclic" },
+    { text: `Pitch link ${blades[0].name}`, at: lerp3(blades[0].lug, blades[0].tip, 0.5), dx: 18, dy: -8, kind: "path", show: stage === "collective" || stage === "feather" || stage === "response" },
+    { text: "Pitch horn", at: blades[0].tip, dx: 16, dy: 22, kind: "path", show: stage === "feather" },
+    { text: "Feathering axis", at: blades[0].axis, dx: 18, dy: -24, kind: "state", show: stage === "feather" || stage === "response" },
+    { text: "Mast", at: [0, 0.82, GEO.mastR], dx: 14, dy: -16, kind: "", show: stage === "rings" && p.section < 0.4 && !compact },
+  ];
+  return all.filter((item) => item.show).slice(0, compact ? 3 : 5);
+}
+
+function drawLabels(scene, cam) {
+  const items = labelSet(scene);
+  labelsEl.replaceChildren();
+  ctx.save();
+  ctx.lineWidth = dpr;
+  const placed = [];
+  items.forEach((item, index) => {
+    const q = project(item.at, cam);
+    if (!q.visible) return;
+    if (q.x < 12 || q.x > cssW - 12 || q.y < 64 || q.y > cssH - 108) return;
+    let x = q.x + item.dx;
+    let y = q.y + item.dy;
+    if (x < 400 && y < 430) x = q.x + Math.abs(item.dx) + 8;
+    x = Math.max(12, Math.min(cssW - 210, x));
+    const labelFloor = cssW < 800 ? cssH - 470 : cssH - 128;
+    y = Math.max(72, Math.min(labelFloor, y));
+    for (const prev of placed) {
+      if (Math.abs(prev.x - x) < 180 && Math.abs(prev.y - y) < 26) y = prev.y + 28;
+    }
+    if (Math.hypot(x - q.x, y - q.y) > 260) return;
+    placed.push({ x, y });
+    const el = document.createElement("div");
+    el.className = `tag ${item.kind}`.trim();
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    const mark = document.createElement("b");
+    mark.textContent = String(index + 1).padStart(2, "0");
+    const name = document.createElement("span");
+    name.textContent = item.text;
+    el.append(mark, name);
+    labelsEl.append(el);
+    ctx.strokeStyle = item.kind === "act" ? "rgba(255,209,102,0.75)" : item.kind === "state" ? "rgba(157,78,221,0.8)" : "rgba(0,229,255,0.6)";
+    ctx.beginPath();
+    ctx.moveTo(q.x * dpr, q.y * dpr);
+    ctx.lineTo(x * dpr, y * dpr);
+    ctx.stroke();
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.beginPath();
+    ctx.arc(q.x * dpr, q.y * dpr, 2.4 * dpr, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.restore();
+}
