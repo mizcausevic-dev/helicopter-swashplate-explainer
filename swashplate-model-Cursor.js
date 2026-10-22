@@ -431,3 +431,80 @@ export function featherSeries(frame, samples = 72) {
   }
   return rows;
 }
+
+const CAM_KEYS = [
+  { f: 0, pos: [4.15, 2.55, 3.75], look: [0, 0.62, 0], fov: 38 },
+  { f: 78, pos: [3.65, 2.28, 3.3], look: [0, 0.58, 0], fov: 36 },
+  { f: 149, pos: [-2.7, 1.42, 2.95], look: [0, 0.55, 0], fov: 32 },
+  { f: 230, pos: [1.4, 2.7, 4.15], look: [0, 0.7, 0], fov: 36 },
+  { f: 299, pos: [4.35, 1.7, 1.85], look: [0, 0.72, 0], fov: 34 },
+  { f: 509, pos: [-1.15, 3.7, 3.55], look: [0, 0.62, 0], fov: 36 },
+];
+
+const HERO = { pos: [4.45, 3.15, 4.05], look: [0, 0.72, 0], fov: 38 };
+
+function interpKeys(frame) {
+  let a = CAM_KEYS[0];
+  let b = CAM_KEYS[CAM_KEYS.length - 1];
+  for (let i = 0; i < CAM_KEYS.length - 1; i++) {
+    if (frame >= CAM_KEYS[i].f && frame <= CAM_KEYS[i + 1].f) {
+      a = CAM_KEYS[i];
+      b = CAM_KEYS[i + 1];
+      break;
+    }
+  }
+  const span = b.f - a.f || 1;
+  const t = smootherstep((frame - a.f) / span);
+  return {
+    pos: lerp3(a.pos, b.pos, t),
+    look: lerp3(a.look, b.look, t),
+    fov: lerp(a.fov, b.fov, t),
+  };
+}
+
+function followCamera(frame) {
+  const blade = bladeStates(frame)[0];
+  const pos = add(blade.tip, scale(blade.tangent, -1.85), [0, 1.25, 0], scale(blade.radial, 1.05));
+  const look = lerp3(blade.lug, blade.axis, 0.35);
+  return { pos, look, fov: 38 };
+}
+
+export function camera(frame) {
+  const f = clampFrame(frame);
+  if (f <= 509) return interpKeys(f);
+  const follow = followCamera(f);
+  if (f <= 749) {
+    const from = interpKeys(509);
+    const u = smootherstep(Math.min(1, (f - 510) / 86));
+    return {
+      pos: lerp3(from.pos, follow.pos, u),
+      look: lerp3(from.look, follow.look, u),
+      fov: lerp(from.fov, follow.fov, u),
+    };
+  }
+  const from = followCamera(749);
+  const u = smootherstep(Math.min(1, (f - 750) / (960 - 750)));
+  return {
+    pos: lerp3(from.pos, HERO.pos, u),
+    look: lerp3(from.look, HERO.look, u),
+    fov: lerp(from.fov, HERO.fov, u),
+  };
+}
+
+export function projectPoint(p, cam, width, height) {
+  const rel = sub(p, cam.pos);
+  const forward = normalize(sub(cam.look, cam.pos));
+  const right = normalize(cross(forward, [0, 1, 0]));
+  const up = cross(right, forward);
+  const z = dot(rel, forward);
+  const x = dot(rel, right);
+  const y = dot(rel, up);
+  if (z < 0.08) return { visible: false, x: 0, y: 0, z };
+  const focal = 1 / Math.tan((cam.fov * Math.PI) / 360);
+  return {
+    visible: true,
+    x: (x / z) * focal * (height / 2) + width / 2,
+    y: (-y / z) * focal * (height / 2) + height / 2,
+    z,
+  };
+}
