@@ -580,3 +580,171 @@ function drawLabels(scene, cam) {
   });
   ctx.restore();
 }
+
+function drawSectionSchematic() {
+  const title = chart.querySelector("h3");
+  const cap = document.getElementById("chart-cap");
+  title.textContent = "Uniball sleeve, section schematic";
+  title.style.color = "#00e5ff";
+  cap.textContent = "Viewing-plane diagram of the stack. Proportions are illustrative. The parts are not removed.";
+  plot.setAttribute("aria-label", "Schematic section through the mast, uniball, and both swash-plate rings.");
+  plot.innerHTML = `
+    <rect x="36" y="16" width="18" height="86" fill="#344257"/>
+    <circle cx="72" cy="58" r="20" fill="#8b98a8" stroke="#00e5ff" stroke-width="1"/>
+    <rect x="96" y="64" width="78" height="14" fill="#344257" stroke="#9aa6b6"/>
+    <rect x="100" y="40" width="70" height="12" fill="#4d6078" stroke="#00e5ff"/>
+    <circle cx="124" cy="58" r="3" fill="#e7edf5"/>
+    <circle cx="146" cy="58" r="3" fill="#e7edf5"/>
+    <text x="8" y="108" fill="#9aa6b6" font-size="9">mast</text>
+    <text x="58" y="108" fill="#9aa6b6" font-size="9">uniball</text>
+    <text x="118" y="108" fill="#9aa6b6" font-size="9">two rings</text>`;
+}
+
+function drawPlot(frame) {
+  const stage = stageAt(frame);
+  chart.style.opacity = "1";
+  if (frame < 150) {
+    drawSectionSchematic();
+    return;
+  }
+  const title = chart.querySelector("h3");
+  const cap = document.getElementById("chart-cap");
+  const state = pose(frame);
+  title.textContent = "Mechanical feather state";
+  title.style.color = "#9d4edd";
+  cap.textContent = state.cyclic < 0.08
+    ? "Flat line: every azimuth has the same illustrated feather. Not a flight measurement."
+    : "One revolution of illustrated feather. Cyan tick: plate high side. Gold dots: the four blades. Not rotor-disc tilt.";
+  const series = featherSeries(frame, 48);
+  const blades = bladeStates(frame);
+  const w = 300;
+  const h = 112;
+  const l = 28;
+  const r = 8;
+  const t = 8;
+  const b = 18;
+  const yMin = -5;
+  const yMax = 70;
+  const xOf = (deg) => l + ((deg % 360) / 360) * (w - l - r);
+  const yOf = (deg) => t + (1 - (deg - yMin) / (yMax - yMin)) * (h - t - b);
+  const parts = [
+    `<line x1="${l}" y1="${yOf(0)}" x2="${w - r}" y2="${yOf(0)}" stroke="#2c3a4d"/>`,
+    `<line x1="${l}" y1="${t}" x2="${l}" y2="${h - b}" stroke="#2c3a4d"/>`,
+    `<text x="${l}" y="${h - 4}" fill="#9aa6b6" font-size="9">0° azimuth</text>`,
+    `<text x="${w - 78}" y="${h - 4}" fill="#9aa6b6" font-size="9">360°</text>`,
+    `<text x="2" y="14" fill="#9aa6b6" font-size="9">deg</text>`,
+  ];
+  let d = "";
+  series.forEach((row, i) => {
+    const x = xOf(row.deg);
+    const y = yOf(row.featherDeg);
+    d += i === 0 ? `M${x},${y}` : `L${x},${y}`;
+  });
+  parts.push(`<path d="${d}" fill="none" stroke="#9d4edd" stroke-width="1.6"/>`);
+  parts.push(`<line x1="${xOf(0)}" y1="${t}" x2="${xOf(0)}" y2="${h - b}" stroke="rgba(0,229,255,0.35)" stroke-dasharray="2 2"/>`);
+  blades.forEach((blade) => {
+    const deg = ((blade.azimuth * 180) / Math.PI) % 360;
+    const fd = (blade.feather * 180) / Math.PI;
+    parts.push(`<circle cx="${xOf(deg)}" cy="${yOf(fd)}" r="2.6" fill="#ffd166"/>`);
+  });
+  plot.setAttribute("aria-label", `${stage.title}. Illustrated feather curve from ${series[0].featherDeg.toFixed(0)} degrees through the rotation.`);
+  plot.innerHTML = parts.join("");
+}
+
+function updateHud(frame) {
+  const stage = stageAt(frame);
+  stageName.textContent = stage.title;
+  stageTitle.textContent = stage.title;
+  stageNo.textContent = String(stage.index + 1).padStart(2, "0");
+  timeRead.textContent = cssW < 800
+    ? `${timecode(frame)} · ${frame}/1019`
+    : `Frame ${frame} / 1019 · ${timecode(frame)} / ${DURATION_S.toFixed(3)} s · ${FPS} fps`;
+  copyEl.textContent = narration(frame);
+  chipsEl.replaceChildren();
+  badges(frame).forEach((badge) => {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.textContent = badge.text;
+    chipsEl.append(chip);
+  });
+  playBtn.textContent = frame >= 1019 ? "Replay" : playing ? "Pause" : "Play";
+  playBtn.setAttribute("aria-pressed", playing ? "true" : "false");
+  if (document.activeElement !== scrub) scrub.value = String(frame);
+  scrub.setAttribute("aria-valuetext", `Frame ${frame}, ${stage.title}, ${timecode(frame)}`);
+}
+
+function render(frame) {
+  resize();
+  const cam = camera(frame);
+  const scene = buildScene(frame);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#0B1019";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  drawGrid(cam);
+  paintScene(scene, cam);
+  drawSection(scene, cam);
+  drawOverlays(scene, cam);
+  drawLabels(scene, cam);
+  drawPlot(frame);
+  updateHud(frame);
+}
+
+function seek(next, keepPlaying) {
+  frame = clampFrame(next);
+  acc = 0;
+  if (!keepPlaying) playing = false;
+  if (frame >= 1019) playing = false;
+  render(frame);
+}
+
+function loop(now) {
+  if (playing && !document.hidden) {
+    acc += now - last;
+    const step = 1000 / FPS;
+    if (acc > 200) acc = step;
+    while (acc >= step) {
+      acc -= step;
+      if (frame >= 1019) {
+        playing = false;
+        break;
+      }
+      frame += 1;
+    }
+  }
+  last = now;
+  render(frame);
+  requestAnimationFrame(loop);
+}
+
+playBtn.addEventListener("click", () => {
+  if (frame >= 1019) frame = 0;
+  playing = !playing;
+  acc = 0;
+  last = performance.now();
+});
+document.getElementById("step-back").addEventListener("click", () => seek(frame - 1, false));
+document.getElementById("step-fwd").addEventListener("click", () => seek(frame + 1, false));
+scrub.addEventListener("input", () => seek(Number(scrub.value), false));
+document.querySelectorAll("[data-seek]").forEach((button) => {
+  button.addEventListener("click", () => seek(Number(button.dataset.seek), playing));
+});
+window.addEventListener("keydown", (event) => {
+  if (event.target === scrub) return;
+  if (event.code === "Space") {
+    event.preventDefault();
+    playBtn.click();
+  } else if (event.code === "ArrowRight") seek(frame + 1, false);
+  else if (event.code === "ArrowLeft") seek(frame - 1, false);
+  else if (event.code === "Home") seek(0, false);
+  else if (event.code === "End") seek(1019, false);
+  else if (event.key >= "1" && event.key <= "5") seek(STAGES[Number(event.key) - 1].start, playing);
+});
+window.addEventListener("resize", () => render(frame));
+
+window.__SWASH_FILM__ = {
+  seek: (value) => seek(value, false),
+  get frame() { return frame; },
+  frameCount: FRAME_COUNT,
+};
+
+requestAnimationFrame(loop);
