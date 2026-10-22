@@ -193,3 +193,86 @@ export function pose(frame) {
     omega: omega(f),
   };
 }
+
+export function dot(a, b) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+export function cross(a, b) {
+  return [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ];
+}
+
+export function add(a, b, c, d) {
+  const x = a[0] + b[0] + (c ? c[0] : 0) + (d ? d[0] : 0);
+  const y = a[1] + b[1] + (c ? c[1] : 0) + (d ? d[1] : 0);
+  const z = a[2] + b[2] + (c ? c[2] : 0) + (d ? d[2] : 0);
+  return [x, y, z];
+}
+
+export function sub(a, b) {
+  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+}
+
+export function scale(a, s) {
+  return [a[0] * s, a[1] * s, a[2] * s];
+}
+
+export function hypot3(a) {
+  return Math.hypot(a[0], a[1], a[2]);
+}
+
+export function normalize(a) {
+  const n = hypot3(a) || 1;
+  return [a[0] / n, a[1] / n, a[2] / n];
+}
+
+export function lerp3(a, b, t) {
+  return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+}
+
+export function rodrigues(v, k, angle) {
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  const d = dot(k, v);
+  const cr = cross(k, v);
+  return [
+    v[0] * c + cr[0] * s + k[0] * d * (1 - c),
+    v[1] * c + cr[1] * s + k[1] * d * (1 - c),
+    v[2] * c + cr[2] * s + k[2] * d * (1 - c),
+  ];
+}
+
+export function plateBasis(h, beta, psiHigh) {
+  const center = [0, h, 0];
+  const high = [Math.cos(psiHigh), 0, -Math.sin(psiHigh)];
+  let axis = [high[2], 0, -high[0]];
+  const alen = Math.hypot(axis[0], axis[1], axis[2]);
+  axis = alen < 1e-8 ? [0, 0, 1] : [axis[0] / alen, axis[1] / alen, axis[2] / alen];
+  const normal = normalize(rodrigues([0, 1, 0], axis, -beta));
+  const t1 = normalize(rodrigues([1, 0, 0], axis, -beta));
+  const t2 = normalize(rodrigues([0, 0, 1], axis, -beta));
+  return { center, normal, t1, t2, axis };
+}
+
+export function onPlate(basis, azimuth, radius, normalOffset = 0) {
+  const c = Math.cos(azimuth);
+  const s = Math.sin(azimuth);
+  return add(
+    basis.center,
+    scale(basis.t1, radius * c),
+    scale(basis.t2, -radius * s),
+    scale(basis.normal, normalOffset),
+  );
+}
+
+export function radialAt(azimuth) {
+  return [Math.cos(azimuth), 0, -Math.sin(azimuth)];
+}
+
+export function tangentAt(azimuth) {
+  return [-Math.sin(azimuth), 0, -Math.cos(azimuth)];
+}
