@@ -275,3 +275,82 @@ function buildScene(frame) {
 
   return { faces, p, basis, blades, servos, drives, scissor, stage };
 }
+
+function resize() {
+  const rect = canvas.getBoundingClientRect();
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  cssW = Math.max(1, rect.width);
+  cssH = Math.max(1, rect.height);
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+}
+
+function project(p, cam) {
+  return projectPoint(p, cam, cssW, cssH);
+}
+
+function drawGrid(cam) {
+  ctx.save();
+  ctx.lineWidth = dpr;
+  ctx.strokeStyle = "rgba(52, 66, 87, 0.45)";
+  ctx.beginPath();
+  for (let i = -4; i <= 4; i++) {
+    line3([-4, 0, i], [4, 0, i], cam);
+    line3([i, 0, -4], [i, 0, 4], cam);
+  }
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(154, 166, 182, 0.8)";
+  ctx.lineWidth = 1.5 * dpr;
+  ctx.beginPath();
+  line3([0.4, 0.002, 0], [1.15, 0.002, 0], cam);
+  line3([1.15, 0.002, 0], [0.98, 0.002, 0.1], cam);
+  line3([1.15, 0.002, 0], [0.98, 0.002, -0.1], cam);
+  ctx.stroke();
+  const fwd = project([1.28, 0.02, 0], cam);
+  if (fwd.visible) {
+    ctx.fillStyle = "#9aa6b6";
+    ctx.font = `${11 * dpr}px ${getComputedStyle(document.body).fontFamily}`;
+    ctx.fillText("FWD", fwd.x * dpr + 4, fwd.y * dpr);
+  }
+  ctx.restore();
+}
+
+function line3(a, b, cam) {
+  const pa = project(a, cam);
+  const pb = project(b, cam);
+  if (!pa.visible || !pb.visible) return;
+  ctx.moveTo(pa.x * dpr, pa.y * dpr);
+  ctx.lineTo(pb.x * dpr, pb.y * dpr);
+}
+
+function strokeLoop(points, cam, color, width, dash) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width * dpr;
+  ctx.setLineDash(dash ? dash.map((n) => n * dpr) : []);
+  ctx.beginPath();
+  let started = false;
+  for (const p of points) {
+    const q = project(p, cam);
+    if (!q.visible) continue;
+    if (!started) {
+      ctx.moveTo(q.x * dpr, q.y * dpr);
+      started = true;
+    } else ctx.lineTo(q.x * dpr, q.y * dpr);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function ghostRing(cam, h) {
+  const basis = plateBasis(h, 0, 0);
+  const pts = [];
+  for (let i = 0; i <= 48; i++) pts.push(onPlate(basis, (i / 48) * Math.PI * 2, GEO.plateOut, 0));
+  strokeLoop(pts, cam, "rgba(154,166,182,0.45)", 1.2, [5, 5]);
+}
+
+function plateRim(basis, cam, color, width) {
+  const pts = [];
+  for (let i = 0; i <= 64; i++) pts.push(onPlate(basis, (i / 64) * Math.PI * 2, GEO.plateOut, GEO.plateHalfT));
+  strokeLoop(pts, cam, color, width, [7, 5]);
+}
