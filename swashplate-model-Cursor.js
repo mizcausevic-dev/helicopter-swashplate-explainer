@@ -508,3 +508,29 @@ export function projectPoint(p, cam, width, height) {
     z,
   };
 }
+
+export function badges(frame) {
+  const f = clampFrame(frame);
+  const p = pose(f);
+  const items = [
+    { id: "time", text: "Time compression: inputs are sequential" },
+    { id: "rate", text: f >= 980 ? "Held pose" : "Rotor rate slowed" },
+  ];
+  if (p.section > 0.4) items.push({ id: "section", text: "Section plane, swash plate only" });
+  if (p.cyclic > 0.05) items.push({ id: "tilt", text: "Tilt exaggerated" });
+  if (f >= 510 && f <= 780) items.push({ id: "scale", text: "Closer view, same part size" });
+  if (f > 780) items.push({ id: "wide", text: "Full rotor, same model units" });
+  items.push({ id: "chord", text: "Blade chord enlarged" });
+  return items;
+}
+
+export function safeguardsText() {
+  return [
+    "Explanatory model of one single-main-rotor swash plate. Not a certified engineering reference, maintenance instruction, flight procedure, or type design.",
+    "Hardware names follow the swash plate assembly in FAA-H-8083-21B Chapter 4: stationary swash plate, anti-drive link, rotating swash plate on a uniball sleeve, drive links, pitch links, and pitch horns. Both plates tilt and slide as one unit.",
+    "Chapter 3 describes the pilot result used for collective: raising the collective increases the pitch angle of all main rotor blades at the same time, and lowering it decreases that pitch equally. This film uses one linkage that produces that result. Other installations reverse horn sense.",
+    "Chapter 4 says a control input is usually realized on the attached body about 90 degrees prior in the direction of rotation, and that designers place the inputs so forward cyclic still produces nominally forward aircraft motion. This film does not draw that aerodynamic offset, a rigging angle, or a rotor-disc tilt.",
+    "No performance, load, rpm, or dimensional specification is stated. Degrees shown on the plot are the illustrated linkage solution. Blade chord is enlarged so feather can be seen. Bearing circulation, blade twist, flap, and lead/lag are not modeled.",
+    "Cyan marks the primary control pathway, gold marks actuation, and violet marks mechanical state. Those colors are annotations, not material emission. No personal data is collected.",
+  ];
+}
