@@ -445,3 +445,76 @@ function strokeCircle(c, r, cam) {
   }
   ctx.stroke();
 }
+
+function drawOverlays(scene, cam) {
+  const { p, basis, blades, servos, scissor, stage } = scene;
+  if (p.collective > 0.04) ghostRing(cam, GEO.hRest);
+  if (p.collective > 0.08 && p.cyclic < 0.08) {
+    const rest = plateBasis(GEO.hRest, 0, 0);
+    const rise = [onPlate(rest, 0.6, GEO.plateOut, 0), onPlate(basis, 0.6, GEO.plateOut, 0)];
+    strokeLoop(rise, cam, "rgba(255,209,102,0.95)", 1.8, []);
+  }
+  if (stage === "cyclic" || stage === "feather" || stage === "response") {
+    plateRim(basis, cam, "rgba(0,229,255,0.85)", 1.6);
+  }
+  ctx.save();
+  ctx.lineWidth = 2 * dpr;
+  ctx.lineCap = "round";
+  const gold = stage === "collective" || stage === "cyclic";
+  if (gold) {
+    ctx.strokeStyle = "rgba(255, 209, 102, 0.95)";
+    ctx.setLineDash([6 * dpr, 4 * dpr]);
+    servos.forEach((servo) => {
+      const a = project(servo.base, cam);
+      const b = project(servo.lug, cam);
+      if (!a.visible || !b.visible) return;
+      ctx.beginPath();
+      ctx.moveTo(a.x * dpr, a.y * dpr);
+      ctx.lineTo(b.x * dpr, b.y * dpr);
+      ctx.stroke();
+    });
+  }
+  ctx.setLineDash([]);
+  ctx.strokeStyle = stage === "feather" ? "rgba(0,229,255,0.95)" : "rgba(0,229,255,0.75)";
+  const shown = stage === "feather" ? blades.filter((b) => b.index === 0) : stage === "rings" ? [] : blades;
+  shown.forEach((blade) => {
+    const a = project(blade.lug, cam);
+    const b = project(blade.tip, cam);
+    if (!a.visible || !b.visible) return;
+    ctx.beginPath();
+    ctx.moveTo(a.x * dpr, a.y * dpr);
+    ctx.lineTo(b.x * dpr, b.y * dpr);
+    ctx.stroke();
+  });
+  if (stage === "rings") {
+    ctx.strokeStyle = "rgba(0,229,255,0.8)";
+    const a = project(scissor.bracket, cam);
+    const b = project(scissor.lug, cam);
+    if (a.visible && b.visible) {
+      ctx.beginPath();
+      ctx.moveTo(a.x * dpr, a.y * dpr);
+      ctx.lineTo(project(scissor.hinge, cam).x * dpr, project(scissor.hinge, cam).y * dpr);
+      ctx.lineTo(b.x * dpr, b.y * dpr);
+      ctx.stroke();
+    }
+    plateRim(basis, cam, "rgba(0,229,255,0.7)", 1.4);
+  }
+  ctx.strokeStyle = "rgba(157, 78, 221, 0.95)";
+  ctx.lineWidth = 1.6 * dpr;
+  blades.forEach((blade) => {
+    if (stage === "rings") return;
+    ctx.beginPath();
+    const steps = 10;
+    for (let i = 0; i <= steps; i++) {
+      const a = (blade.feather * i) / steps;
+      const lead = add(scale(blade.tangent, Math.cos(a)), [0, Math.sin(a), 0]);
+      const pivot = add(scale(blade.radial, GEO.hornRadial), [0, GEO.hornY, 0]);
+      const q = project(add(pivot, scale(normalize(lead), 0.18)), cam);
+      if (!q.visible) continue;
+      if (i === 0) ctx.moveTo(q.x * dpr, q.y * dpr);
+      else ctx.lineTo(q.x * dpr, q.y * dpr);
+    }
+    ctx.stroke();
+  });
+  ctx.restore();
+}
